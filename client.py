@@ -13,6 +13,7 @@ from models.lstm import LSTM
 from eth_utils import is_address
 from solc import compile_source, compile_files
 from blockchain.blockchain_utils import *
+from blockchain.ipfs_utils import *
 
 
 class Client(object):
@@ -162,7 +163,6 @@ class Client(object):
         print(event_data)
         address = event_data.split("000000000000000000000000")[2]
         assert(is_address(address))
-<<<<<<< HEAD
         self.buyerAddress = address
         return event_data.split("000000000000000000000000")
         # start_listening(buyerAddress = self.buyerAddress)

@@ -2,10 +2,10 @@ pragma solidity 0.4.21;
 
 import "blockchain/Query.sol";
 
-contract Master {
+
+contract Delegator {
     address public owner;
-    // address public target = 0xB7e25827fB83d5Ec795276C5343518B047D32199;
-    uint256 public id;
+
     mapping(address => uint256[]) public queries;
     mapping(uint256 => address) private addressBook;
 
@@ -14,7 +14,7 @@ contract Master {
 
     event QueryCreated(address,address);
 
-    function Master() public {
+    function Delegator() public {
         owner = msg.sender;
     }
 
