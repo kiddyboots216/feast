@@ -20,6 +20,7 @@ class Client(object):
     def __init__(self, iden, X_train, y_train, provider, delegatorAddress=None, clientAddress=None):
         
         self.web3 = provider
+        self.api = ipfsapi.connect('127.0.0.1', 5001)
 
         self.PASSPHRASE = 'panda'
         self.TEST_ACCOUNT = '0xb4734dCc08241B46C0D7d22D163d065e8581503e'
@@ -56,12 +57,12 @@ class Client(object):
         get_testnet_eth(self.clientAddress, self.web3)
         print(self.web3.eth.getBalance(self.clientAddress))
 
+        Query_id, self.Query_interface = self.compiled_sol.popitem()
+        Delegator_id, self.Delegator_interface = self.compiled_sol.popitem()
+
         if self.Delegator_address:
             assert(is_address(self.Delegator_address))
         else:
-            #TODO: Figure out what to do in event that a master address is not supplied
-            Query_id, self.Query_interface = self.compiled_sol.popitem()
-            Delegator_id, self.Delegator_interface = self.compiled_sol.popitem()
 
             # self.Query_address = deploy_Query(self.web3, self.Query_interface, self.TEST_ACCOUNT, addr_lst)
             self.Delegator_address = deploy_Master(self.web3, self.Delegator_interface, self.clientAddress)
@@ -99,7 +100,9 @@ class Client(object):
             raise ValueError("Model {0} not supported.".format(model_type))
         self.weights_metadata = self.model.get_weights_shape()
 
-    def train(self, weights, config):
+    def train(self, config, weights=None):
+        time.sleep(10)
+        return
         #TODO: Make train() only need to take in the config argument ONCE
         logging.info('Training just started.')
         assert weights != None, 'weights must not be None.'
@@ -137,10 +140,10 @@ class Client(object):
         return update, num_data
 
     def handle_ClientSelected_event(self, event):
-        #TODO: get weights and config from event
-        #weights will come from the smart contract's variable currentWeights[]        
+        contract_obj = self.web3.eth.contract(
+           address=self.Query_address,
+           abi=self.Query_interface['abi'])
 
-        weights = event.get_weights()
         #will be hardcoded
         config = {
             "num_clients": 1,
@@ -155,9 +158,13 @@ class Client(object):
             "goal_accuracy": 1.0,
             "lr_decay": 0.99
         }
-        update, num_data = train(weights, config)
-        tx_hash = contract_obj.functions.receiveResponse(update, num_data).transact(
-            {'from': clientAddress})
+        update = self.train(config)
+
+        # IPFS add
+        IPFSaddress = 'QmVm4yB2jxPwXXVXM6n86TuwA4jCQ7EfNPjguFrhoCbPiJ'
+
+        tx_hash = contract_obj.functions.receiveResponse(IPFSaddress).transact(
+            {'from': self.clientAddress})
         tx_receipt = self.web3.eth.getTransactionReceipt(tx_hash)
         log = contract_obj.events.ResponseReceived().processReceipt(tx_receipt)
         return log[0]
@@ -166,8 +173,14 @@ class Client(object):
         print(event_data)
         address = event_data.split("000000000000000000000000")[2]
         assert(is_address(address))
-        self.Query_address = address
+        self.Query_address = self.web3.toChecksumAddress(address)
         return event_data.split("000000000000000000000000")
+
+    def handle_BeginAveraging_event(IPFSaddress):
+        # get info at address
+        stuff = self.api.cat(IPFSaddress)
+        tx_hash = contract_obj.functions.allDone().transact(
+            {'from': self.clientAddress})
 
     async def start_listening(self, event_to_listen, poll_interval=5):
         while True:
@@ -199,9 +212,10 @@ class Client(object):
             target_contract = check[0] + check[2]
             print(target_contract)
             retval = self.filter_set("ClientSelected(address)", target_contract, self.handle_ClientSelected_event)
-            return "I got chosen:", retval[0] + retval[1]
+            # return "I got chosen:", retval[0] + retval[1]
+            alldone = self.filter_set("BeginAveraging(string)", target_contract, self.handle_BeginAveraging_event)
         else:
-            return "failure"
+            return "not me"
 
 
 
