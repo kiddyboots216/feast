@@ -14,6 +14,7 @@ from keras.preprocessing import sequence
 from keras.layers import concatenate
 import keras.backend as K
 
+
 # from models.generic_model import GenericModel
 
 class ConversationalNetwork:
@@ -22,10 +23,8 @@ class ConversationalNetwork:
             os.path.dirname(__file__), 'pretrained/my_model_weights.h5')
         self.vocabulary_file = os.path.join(
             os.path.dirname(__file__), 'pretrained/vocabulary_movie')
-        self.file_saved_context = os.path.join(
-            os.path.dirname(__file__), 'pretrained/saved_context')
-        self.file_saved_answer = os.path.join(
-            os.path.dirname(__file__), 'pretrained/saved_answer')
+        self.file_saved_context = 'data/saved_context'
+        self.file_saved_answer = 'data/saved_answer'
 
         self.vocabulary = pickle.load(open(self.vocabulary_file, 'rb'))
         self.q_file = open(self.file_saved_context, 'a')
@@ -121,12 +120,17 @@ class ConversationalNetwork:
         best_answer = self.state["text"][0 : -4]
         return best_answer
 
-    def train_model(self, config, q_train, a_train):
+    def train_model(self, config):
+        q_train, a_train = get_data()
+        print(q_train, a_train)
+        exit(1)
+
+        self.config = config
         epochs = self.config['epochs']
         batch_size = self.config['batch_size']
 
         n_exem, n_words = a_train.shape
-        step = np.around(n_exem/num_subsets)
+        step = int(np.around(n_exem/self.num_subsets))
         round_exem = step * self.num_subsets
         print('Number of exemples = %d'%(n_exem))
 
@@ -175,6 +179,9 @@ class ConversationalNetwork:
 
     def load_weights(self, new_weights_path):
         self.generator.load_weights(new_weights_path)
+
+    def set_weights(self, new_weights):
+        self.generator.set_weights(new_weights)
 
     def get_weights(self):
         return self.generator.get_weights()
@@ -277,17 +284,119 @@ class ConversationalNetwork:
                 text = text + w[0] + ' '
         return (text, prob)
 
+
+# def get_data():
+#     import numpy as np
+#     np.random.seed(1234)  # for reproducibility
+#     import pandas as pd
+#     import os
+#     import csv
+#     import nltk
+#     import itertools
+#     import operator
+#     import pickle
+#     import numpy as np    
+#     from keras.preprocessing import sequence
+#     from scipy import sparse, io
+#     from numpy.random import permutation
+#     import re
+        
+#     questions_file = 'saved_context'
+#     answers_file = 'saved_answer'
+#     vocabulary_file = 'vocabulary_movie'
+#     # padded_questions_file = 'Padded_context'
+#     # padded_answers_file = 'Padded_answers'
+#     unknown_token = 'something'
+
+#     vocabulary_size = 7000
+#     max_features = vocabulary_size
+#     maxlen_input = 50
+#     maxlen_output = 50  # cut texts after this number of words
+
+#     print ("Reading the context data...")
+#     q = open(questions_file, 'r')
+#     questions = q.read()
+#     print ("Reading the answer data...")
+#     a = open(answers_file, 'r')
+#     answers = a.read()
+#     all = answers + questions
+#     print ("Tokenazing the answers...")
+#     paragraphs_a = [p for p in answers.split('\n')]
+#     paragraphs_b = [p for p in all.split('\n')]
+#     paragraphs_a = ['BOS '+p+' EOS' for p in paragraphs_a]
+#     paragraphs_b = ['BOS '+p+' EOS' for p in paragraphs_b]
+#     paragraphs_b = ' '.join(paragraphs_b)
+#     tokenized_text = paragraphs_b.split()
+#     paragraphs_q = [p for p in questions.split('\n') ]
+#     tokenized_answers = [p.split() for p in paragraphs_a]
+#     tokenized_questions = [p.split() for p in paragraphs_q]
+
+    ### Counting the word frequencies:
+    ##word_freq = nltk.FreqDist(itertools.chain(tokenized_text))
+    ##print ("Found %d unique words tokens." % len(word_freq.items()))
+    ##
+    ### Getting the most common words and build index_to_word and word_to_index vectors:
+    ##vocab = word_freq.most_common(vocabulary_size-1)
+    ##
+    ### Saving vocabulary:
+    ##with open(vocabulary_file, 'w') as v:
+    ##    pickle.dump(vocab, v)
+
+    vocab = pickle.load(open(vocabulary_file, 'rb'))
+
+
+    index_to_word = [x[0] for x in vocab]
+    index_to_word.append(unknown_token)
+    word_to_index = dict([(w,i) for i,w in enumerate(index_to_word)])
+
+    print ("Using vocabulary of size %d." % vocabulary_size)
+    print ("The least frequent word in our vocabulary is '%s' and appeared %d times." % (vocab[-1][0], vocab[-1][1]))
+
+    # Replacing all words not in our vocabulary with the unknown token:
+    for i, sent in enumerate(tokenized_answers):
+        tokenized_answers[i] = [w if w in word_to_index else unknown_token for w in sent]
+       
+    for i, sent in enumerate(tokenized_questions):
+        tokenized_questions[i] = [w if w in word_to_index else unknown_token for w in sent]
+
+    # Creating the training data:
+    X = np.asarray([[word_to_index[w] for w in sent] for sent in tokenized_questions])
+    Y = np.asarray([[word_to_index[w] for w in sent] for sent in tokenized_answers])
+
+    Q = sequence.pad_sequences(X, maxlen=maxlen_input)
+    A = sequence.pad_sequences(Y, maxlen=maxlen_output, padding='post')
+
+    return Q, A
+
+    # with open(padded_questions_file, 'wb') as q:
+    #     pickle.dump(Q, q)
+        
+    # with open(padded_answers_file, 'wb') as a:
+    #     pickle.dump(A, a)
+
 if __name__ == '__main__':
     m = ConversationalNetwork()
-    m.build_model(is_retraining=False)
+    m.build_model(is_retraining=True)
 
-    print("\n \n \n \n    CHAT:     \n \n")
-    print('computer: hi ! please type your name.\n')
-    name = input('user: ')
-    print('computer: hi , ' + name +' ! My name is ' + m.name_of_computer + '.\n') 
+    # # training
+    questions_file = 'data/Padded_context'
+    answers_file = 'data/Padded_answers'
+    # q = pickle.load(open(questions_file, 'rb'))
+    # a = pickle.load(open(answers_file, 'rb'))
+    config = {
+        'epochs': 1,
+        'batch_size': 2
+    }
+    m.train_model(config)
 
-    while True:
-        utterance = input('user: ')
-        response = m.run_inference(utterance, name)
-        print('computer: ' + response + '\n\n\n')
+    # # testing
+    # print("\n \n \n \n    CHAT:     \n \n")
+    # print('computer: hi ! please type your name.\n')
+    # name = input('user: ')
+    # print('computer: hi , ' + name +' ! My name is ' + m.name_of_computer + '.\n') 
+
+    # while True:
+    #     utterance = input('user: ')
+    #     response = m.run_inference(utterance, name)
+    #     print('computer: ' + response + '\n\n\n')
 
