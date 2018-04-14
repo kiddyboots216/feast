@@ -41,7 +41,7 @@ def createTrainingMatrices(dictionary, corpus):
 	yTrain=[]
 	for i in range(numTotalWords):
 		if i % 100000 == 0:
-			print 'Finished %d/%d total words' % (i, numTotalWords)
+			print('Finished %d/%d total words' % (i, numTotalWords))
 		wordsAfter = allWords[i + 1:i + windowSize + 1]
 		wordsBefore = allWords[max(0, i - windowSize):i]
 		wordsAdded = wordsAfter + wordsBefore
@@ -61,19 +61,19 @@ continueWord2Vec = True
 if (os.path.isfile('Word2VecXTrain.npy') and os.path.isfile('Word2VecYTrain.npy') and os.path.isfile('wordList.txt')):
 	xTrain = np.load('Word2VecXTrain.npy')
 	yTrain = np.load('Word2VecYTrain.npy')
-	print 'Finished loading training matrices'
+	print('Finished loading training matrices')
 	with open("wordList.txt", "rb") as fp:
 		wordList = pickle.load(fp)
-	print 'Finished loading word list'
+	print('Finished loading word list')
 
 else:
 	fullCorpus, datasetDictionary = processDataset('conversationData.txt')
-	print 'Finished parsing and cleaning dataset'
+	print('Finished parsing and cleaning dataset')
 	wordList = list(datasetDictionary.keys())
-	createOwnVectors = raw_input('Do you want to create your own vectors through Word2Vec (y/n)?')
+	createOwnVectors = input('Do you want to create your own vectors through Word2Vec (y/n)?')
 	if (createOwnVectors == 'y'):
 		xTrain, yTrain  = createTrainingMatrices(datasetDictionary, fullCorpus)
-		print 'Finished creating training matrices'
+		print('Finished creating training matrices')
 		np.save('Word2VecXTrain.npy', xTrain)
 		np.save('Word2VecYTrain.npy', yTrain)
 	else:
@@ -116,6 +116,6 @@ for i in range(numIterations):
 	_, curLoss = sess.run([optimizer, loss], feed_dict={inputs: trainInputs, outputs: trainLabels})
 	if (i % 10000 == 0):
 		print ('Current loss is:', curLoss)
-print 'Saving the word embedding matrix'
+print ('Saving the word embedding matrix')
 embedMatrix = embeddingMatrix.eval(session=sess)
 np.save('embeddingMatrix.npy', embedMatrix)
