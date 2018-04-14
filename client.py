@@ -14,7 +14,7 @@ from eth_utils import is_address
 from solc import compile_source, compile_files
 from blockchain.blockchain_utils import *
 from blockchain.ipfs_utils import *
-
+from models.gan import ConversationalNetwork
 
 class Client(object):
     def __init__(self, iden, X_train, y_train, provider, delegatorAddress=None, clientAddress=None):
@@ -100,20 +100,16 @@ class Client(object):
             raise ValueError("Model {0} not supported.".format(model_type))
         self.weights_metadata = self.model.get_weights_shape()
 
-    def train(self, config):
+    def train(self, IPFSaddress, config):
         #TODO: Make train() only need to take in the config argument ONCE
         logging.info('Training just started.')
         assert weights != None, 'weights must not be None.'
 
         # Get weights from IPFS and load into model
-        ipfs2keras(self.model, self.model_address) # fix me
-
-        # Get training data
-        q_train = ...
-        a_train = ...
+        ipfs2keras(self.model, IPFSaddress) # fix me
 
         # Train model
-        self.model.train_model(config, q_train, a_train)
+        self.model.train_model(config)
 
         # Prepare federated learning return
         n_k = a_train.shape[0]
@@ -161,7 +157,7 @@ class Client(object):
         return update, num_data
 
     def handle_ClientSelected_event(self, event_data):
-        
+
         e_data = [x for x in event_data.split('000000000') if x]
         IPFSaddress_receiving = e_data[3]
         address = self.web3.toChecksumAddress('0x' + e_data[1])
@@ -188,10 +184,10 @@ class Client(object):
             "goal_accuracy": 1.0,
             "lr_decay": 0.99
         }
-        update = self.train(config)
 
         # IPFS add
         IPFSaddress = 'QmVm4yB2jxPwXXVXM6n86TuwA4jCQ7EfNPjguFrhoCbPiJ'
+        update = self.train(IPFSaddress, config)
 
         tx_hash = contract_obj.functions.receiveResponse(IPFSaddress).transact(
             {'from': self.clientAddress})
@@ -208,9 +204,26 @@ class Client(object):
 
     def handle_BeginAveraging_event(self, IPFSaddress):
         # get info at address
-        stuff = self.api.cat(IPFSaddress)
+        contract_obj = self.web3.eth.contract(
+           address=self.Query_address,
+           abi=self.Query_interface['abi'])
+        averagedAddress, num_data = self.runningWeightedAverage(IPFSaddress)
         tx_hash = contract_obj.functions.allDone().transact(
             {'from': self.clientAddress})
+        return tx_hash
+
+    def runningWeightedAverage(self, new_model_address, n_k_1, n_k_2):
+        model1, model2 = self.model, self.preprocess(new_model_address)
+        weights1, weights2 = model1.get_weights(), model2.get_weights()
+        scaled_weights1, scaled_weights2 = model1.scale_weights(weights1, n_k_1), model2.scale_weights(weights2, n_k_2)
+        summed_weights = model2.sum_weights(weights1, weights2)
+        newModel = model2.set_weights(summed_weights)
+        return keras2ipfs(newModel), n_k_1 + n_k_2
+
+    def preprocess(self, new_model_address):
+        newModel = ConversationalNetwork()
+        ipfs2keras(newModel, new_model_address)
+        return newModel
 
     async def start_listening(self, event_to_listen, poll_interval=5):
         while True:
