@@ -28,6 +28,8 @@ class ConversationalNetwork:
             os.path.dirname(__file__), 'pretrained/saved_answer')
 
         self.vocabulary = pickle.load(open(self.vocabulary_file, 'rb'))
+        self.q_file = open(self.file_saved_context, 'a')
+        self.a_file = open(self.file_saved_answer, 'a')
         self.name_of_computer = 'ben'
 
         self.learning_rate = 0.000001
@@ -35,10 +37,12 @@ class ConversationalNetwork:
         self.sentence_embedding_size = 300
         self.word_embedding_size = 100
         self.dictionary_size = 7000
+        self.num_subsets = 1
 
         self.state = {
             'probability': 0.0,
-            'text': ''
+            'text': ' ',
+            'last_query': ' '
         }
 
     def build_model(self, is_retraining):
@@ -98,6 +102,12 @@ class ConversationalNetwork:
         input_text = input_text.strip()
         preprocessed_input = self._preprocess_input(input_text, self.name_of_computer)
 
+        q = self.state['last_query'] + ' ' + self.state['text']
+        self.q_file.write(q + '\n')
+        a = preprocessed_input
+        self.a_file.write(a + '\n')
+        self.state['last_query'] = preprocessed_input
+
         if self.state["probability"] > 0.2:
             query = self.state['text'] + ' ' + preprocessed_input
         else:    
@@ -110,6 +120,55 @@ class ConversationalNetwork:
 
         best_answer = self.state["text"][0 : -4]
         return best_answer
+
+    def train_model(self, config, q_train, a_train):
+        epochs = self.config['epochs']
+        batch_size = self.config['batch_size']
+
+        n_exem, n_words = a_train.shape
+        step = np.around(n_exem/num_subsets)
+        round_exem = step * self.num_subsets
+        print('Number of exemples = %d'%(n_exem))
+
+        train_loss = np.zeros(epochs)
+        for m in range(epochs):
+            # Loop over training batches due to memory constraints:
+            for n in range(0, round_exem, step):
+                q_batch = q_train[n : n+step]
+                count = 0
+                for i, sent in enumerate(a[n : n+step]):
+                    l = np.where(sent==3)  #  the position od the symbol EOS
+                    limit = l[0][0]
+                    count += limit + 1
+                    
+                Q = np.zeros((count, self.maxlen_input))
+                A = np.zeros((count, self.maxlen_input))
+                Y = np.zeros((count, self.dictionary_size))
+                
+                # Loop over the training examples:
+                count = 0
+                for i, sent in enumerate(a_train[n : n+step]):
+                    ans_partial = np.zeros((1, self.maxlen_input))
+                    
+                    # Loop over the positions of the current target output (the current output sequence):
+                    l = np.where(sent==3)  #  the position of the symbol EOS
+                    limit = l[0][0]
+
+                    for k in range(1, limit+1):
+                        # Mapping the target output (the next output word) for one-hot codding:
+                        y = np.zeros((1, self.dictionary_size))
+                        y[0, sent[k]] = 1
+
+                        # preparing the partial answer to input:
+                        ans_partial[0,-k:] = sent[0:k]
+
+                        # training the model for one epoch using teacher forcing:
+                        Q[count, :] = q_batch[i:i+1] 
+                        A[count, :] = ans_partial 
+                        Y[count, :] = y
+                        count += 1           
+                print('Training epoch: %d, training examples: %d - %d'%(m,n, n + step))
+                self.generator.fit([Q, A], Y, batch_size=batch_size, epochs=epochs)
 
     def load_initial_weights(self):
         self.load_weights(self.gen_initial_weights_path)
