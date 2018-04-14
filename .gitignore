@@ -1,6 +1,7 @@
 __pycache__/
 *.h5
 *.npy
+vocabulary_movie
 saved_answer
 saved_context
 Padded_answers
