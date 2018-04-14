@@ -26,7 +26,7 @@ contract Delegator {
         lst[1] = 1;
         lst[2] = 2;
         addrList.push(target);
-        q = address(new Query(3, lst, 0, 0, 5, lst, 3, addrList));
+        q = address(new Query(1, 1, addrList));
         pingClients(addrList);
     }
 

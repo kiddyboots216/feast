@@ -49,7 +49,7 @@ def compile_source_file(file_path):
 def deploy_Query(w3, contract_interface, account, target_accounts):
 	tx_hash = w3.eth.contract(
 		abi=contract_interface['abi'],
-		bytecode=contract_interface['bin']).constructor(199210, 1, 1, target_accounts).transact({"from": account})
+		bytecode=contract_interface['bin']).constructor(1, 1, target_accounts).transact({"from": account})
 
 	address = w3.eth.getTransactionReceipt(tx_hash)['contractAddress']
 	return address
