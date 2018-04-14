@@ -17,7 +17,7 @@ from blockchain.ipfs_utils import *
 
 
 class Client(object):
-    def __init__(self, iden, X_train, y_train, provider, masterAddress=None, clientAddress=None):
+    def __init__(self, iden, X_train, y_train, provider, delegatorAddress=None, clientAddress=None):
         
         self.web3 = provider
 
@@ -29,7 +29,7 @@ class Client(object):
 
         # assert(import_acct == self.TEST_ACCOUNT)
 
-        contract_source_path_A = "blockchain/Master.sol"
+        contract_source_path_A = "blockchain/Delegator.sol"
         contract_source_path_B = "blockchain/Query.sol"
         self.compiled_sol = compile_files([contract_source_path_A, contract_source_path_B])
 
@@ -50,28 +50,39 @@ class Client(object):
                                            # "value": 9999999999})
         print("Client Address:", self.clientAddress)
 
-        self.Master_address = masterAddress
-    
+        self.Delegator_address = delegatorAddress
+
     def get_money(self):
         get_testnet_eth(self.clientAddress, self.web3)
         print(self.web3.eth.getBalance(self.clientAddress))
 
-        if self.Master_address:
-            assert(is_address(self.Master_address))
+        if self.Delegator_address:
+            assert(is_address(self.Delegator_address))
         else:
             #TODO: Figure out what to do in event that a master address is not supplied
             Query_id, self.Query_interface = self.compiled_sol.popitem()
-            Master_id, self.Master_interface = self.compiled_sol.popitem()
+            Delegator_id, self.Delegator_interface = self.compiled_sol.popitem()
 
             # self.Query_address = deploy_Query(self.web3, self.Query_interface, self.TEST_ACCOUNT, addr_lst)
-            self.Master_address = deploy_Master(self.web3, self.Master_interface, self.clientAddress)
+            self.Delegator_address = deploy_Master(self.web3, self.Delegator_interface, self.clientAddress)
 
-    def ping_client(self, query_address):
-        contract_obj = web3.eth.contract(
-           address=query_address,
-           abi=self.Query_interface)
-        tx_hash = contract_obj.functions.pingClients(addr_lst).transact({'from': self.clientAddress})
-        tx_receipt = web3.eth.getTransactionReceipt(tx_hash)
+    def launch_query(self, target_address):
+        contract_obj = self.web3.eth.contract(
+           address=self.Delegator_address,
+           abi=self.Delegator_interface['abi'])
+        tx_hash = contract_obj.functions.query(target_address).transact(
+            {'from': self.clientAddress})
+        tx_receipt = self.web3.eth.getTransactionReceipt(tx_hash)
+        print(tx_receipt)
+        self.Query_address = self.web3.toChecksumAddress('0x' + tx_receipt['logs'][0]['data'].split('000000000000000000000000')[2])
+        # return tx_receipt
+
+    def ping_client(self):
+        contract_obj = self.web3.eth.contract(
+           address=self.Query_address,
+           abi=self.Query_interface['abi'])
+        tx_hash = contract_obj.functions.pingClients().transact({'from': self.clientAddress})
+        tx_receipt = self.web3.eth.getTransactionReceipt(tx_hash)
         return tx_receipt
 
     def setup_model(self, model_type):
@@ -125,14 +136,6 @@ class Client(object):
         update = self.model.scale_weights(update, num_data)
         return update, num_data
 
-    # def send_weights(self, train_arr, train_key):
-    #     #this should call the contract.sendResponse() with the first argument train() as the input
-    #     tx_hash = contract_obj.functions.sendResponse(train_arr, train_key, len(train_arr)).transact(
-    #         {'from': clientAddress})
-    #     tx_receipt = self.web3.eth.getTransactionReceipt(tx_hash)
-    #     log = contract_obj.events.ResponseReceived().processReceipt(tx_receipt)
-    #     return log[0]
-
     def handle_ClientSelected_event(self, event):
         #TODO: get weights and config from event
         #weights will come from the smart contract's variable currentWeights[]        
@@ -163,37 +166,10 @@ class Client(object):
         print(event_data)
         address = event_data.split("000000000000000000000000")[2]
         assert(is_address(address))
-        self.buyerAddress = address
+        self.Query_address = address
         return event_data.split("000000000000000000000000")
-        # start_listening(buyerAddress = self.buyerAddress)
-
-    # def start_listening(self, buyerAddress = None, 
-    #     # event_to_listen = None, 
-    #     poll_interval = 1000):
-    #     #this should set this client to start listening to a specific contract
-    #     #make this non-blocking
-    #     #TODO: Make event filtering work!
-    #     if buyerAddress:
-    #         assert(is_address(buyerAddress))
-    #         self.buyerContract = self.web3.eth.contract(
-    #                 address=buyerAddress,
-    #                 abi=contractAbi)
-    #         event_filter = self.buyerContract.eventFilter('ClientSelected', {'fromBlock': 'latest'})
-    #         while True:
-    #             for event in event_filter.get_new_entries():
-    #                 handle_clientSelected_event(event)
-    #             time.sleep(poll_interval)
-    #     else:
-    #         event_filter = self.masterContract.eventFilter('QueryCreated', {'fromBlock': 'latest'})
-    #         while True:
-    #             for event in event_filter.get_new_entries():
-    #                 handle_queryCreated_event(event)
-    #             time.sleep(poll_interval)
-
 
     async def start_listening(self, event_to_listen, poll_interval=5):
-        #this should set this client to start listening to a specific contract
-    #     assert(is_address(address))
         while True:
             lst = event_to_listen.get_new_entries()
             if lst:
@@ -217,10 +193,9 @@ class Client(object):
             loop.close()
         return check
 
-    def main(self, master_address):
-        check = self.filter_set("QueryCreated(address,address)", master_address, self.handle_QueryCreated_event)
+    def main(self):
+        check = self.filter_set("QueryCreated(address,address)", self.Delegator_address, self.handle_QueryCreated_event)
         if check[0] + check[1] == self.clientAddress.lower():
-            # retrieve new address and rerun loop
             target_contract = check[0] + check[2]
             print(target_contract)
             retval = self.filter_set("ClientSelected(address)", target_contract, self.handle_ClientSelected_event)
