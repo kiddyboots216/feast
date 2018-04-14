@@ -1,1 +1,9 @@
 __pycache__/
+*.h5
+*.npy
+saved_answer
+saved_context
+Padded_answers
+Padded_context
+glove.6B.zip
+glove.6B/
