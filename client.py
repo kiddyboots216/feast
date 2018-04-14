@@ -164,13 +164,14 @@ class Client(object):
                     handle_queryCreated_event(event)
                 time.sleep(poll_interval)
 
-    def flatten_weights(self, weights):
+    def flatten_weights(self, weights, factor=1e10):
         flattened = []
         for _, tensor in sorted(weights.items()):
             flattened.extend(tensor.flatten().tolist())
-        return flattened
+        return [int(n*factor) for n in flattened]
 
-    def unflatten_weights(self, flattened):
+    def unflatten_weights(self, flattened, factor=1e10):
+        flattened = [n/factor for n in flattened]
         weights = {}
         index = 0
         for name, (shape, size) in sorted(self.weights_metadata.items()):

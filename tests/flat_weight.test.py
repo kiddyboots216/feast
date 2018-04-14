@@ -10,18 +10,25 @@ if __name__ == '__main__':
     c = Client(0, None, None, web3)
     c.setup_model('perceptron')
     weights_metadata = c.weights_metadata
+    factor = 1e10
 
     weights = {
         name: np.random.random(shape) for name, (shape, _) in weights_metadata.items()
     }
     total_size = sum(v.size for _, v in weights.items())
 
-    flattened = c.flatten_weights(weights)
-    assert len(flattened) == total_size
+    flattened = c.flatten_weights(weights, factor)
+    assert len(flattened) == total_size, 'flatten_weights() failed.'
 
-    unflattened = c.unflatten_weights(flattened)
+    for n in flattened:
+        assert int(n) == n, 'flattened should have integers'
+
+    unflattened = c.unflatten_weights(flattened, factor)
     for key1, key2 in zip(sorted(unflattened), sorted(weights)):
-        assert key1 == key2
-        assert np.array_equiv(unflattened[key1], weights[key2])
+        assert key1 == key2, 'invalid keys'
+        unflattened_weights = unflattened[key1]
+        original_weights = (weights[key2] * factor).astype(int) / factor
+        assert np.array_equiv(unflattened_weights, original_weights), \
+            ('unflatten_weights() failed', unflattened, weights)
 
     print("Tests passed!")
