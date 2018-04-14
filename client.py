@@ -147,11 +147,12 @@ class Client(object):
             "lr_decay": 0.99
         }
 
-        # IPFS add
-        IPFSaddress = 'QmVm4yB2jxPwXXVXM6n86TuwA4jCQ7EfNPjguFrhoCbPiJ'
-        update, n_k = self.train(IPFSaddress, config)
+        # data = api.cat(IPFSaddress_receiving)
 
-        tx_hash = contract_obj.functions.receiveResponse(IPFSaddress, n_k).transact(
+        # IPFS add
+        updatedAddress, n_k = self.train(IPFSaddress_receiving, config)
+
+        tx_hash = contract_obj.functions.receiveResponse(updatedAddress, n_k).transact(
             {'from': self.clientAddress})
         tx_receipt = self.web3.eth.getTransactionReceipt(tx_hash)
         log = contract_obj.events.ResponseReceived().processReceipt(tx_receipt)
