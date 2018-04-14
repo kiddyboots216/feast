@@ -1,4 +1,3 @@
-import ipfs
 import keras
 import ipfsapi
 

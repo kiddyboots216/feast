@@ -15,7 +15,7 @@ from solc import compile_source, compile_files
 from blockchain.blockchain_utils import *
 
 
-class Client(object):    
+class Client(object):
     def __init__(self, iden, X_train, y_train, provider, masterAddress=None, clientAddress=None):
         
         self.web3 = provider
@@ -85,11 +85,7 @@ class Client(object):
             self.model = LSTM()
         else:
             raise ValueError("Model {0} not supported.".format(model_type))
-
-    # def setup_training(self, batch_size, epochs, learning_rate):
-    #     self.batch_size = self.X_train.shape[0] if batch_size == -1 else batch_size
-    #     self.epochs = epochs
-    #     self.params = {'learning_rate': learning_rate}
+        self.weights_metadata = self.model.get_weights_shape()
 
     def train(self, weights, config):
         #TODO: Make train() only need to take in the config argument ONCE
@@ -166,6 +162,7 @@ class Client(object):
         print(event_data)
         address = event_data.split("000000000000000000000000")[2]
         assert(is_address(address))
+<<<<<<< HEAD
         self.buyerAddress = address
         return event_data.split("000000000000000000000000")
         # start_listening(buyerAddress = self.buyerAddress)
@@ -238,6 +235,21 @@ class Client(object):
 
 
 
+
+    def flatten_weights(self, weights, factor=1e10):
+        flattened = []
+        for _, tensor in sorted(weights.items()):
+            flattened.extend(tensor.flatten().tolist())
+        return [int(n*factor) for n in flattened]
+
+    def unflatten_weights(self, flattened, factor=1e10):
+        flattened = [n/factor for n in flattened]
+        weights = {}
+        index = 0
+        for name, (shape, size) in sorted(self.weights_metadata.items()):
+            weights[name] = np.array(flattened[index:index+size]).reshape(shape)
+            index += size
+        return weights
 
     def get_checkpoints_folder(self):
         return "./checkpoints-{0}/{1}/".format(self.iden, self.model_type)
