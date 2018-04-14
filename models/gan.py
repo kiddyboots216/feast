@@ -122,8 +122,6 @@ class ConversationalNetwork:
 
     def train_model(self, config):
         q_train, a_train = get_data()
-        print(q_train, a_train)
-        exit(1)
 
         self.config = config
         epochs = self.config['epochs']
@@ -140,7 +138,7 @@ class ConversationalNetwork:
             for n in range(0, round_exem, step):
                 q_batch = q_train[n : n+step]
                 count = 0
-                for i, sent in enumerate(a[n : n+step]):
+                for i, sent in enumerate(a_train[n : n+step]):
                     l = np.where(sent==3)  #  the position od the symbol EOS
                     limit = l[0][0]
                     count += limit + 1
@@ -285,51 +283,51 @@ class ConversationalNetwork:
         return (text, prob)
 
 
-# def get_data():
-#     import numpy as np
-#     np.random.seed(1234)  # for reproducibility
-#     import pandas as pd
-#     import os
-#     import csv
-#     import nltk
-#     import itertools
-#     import operator
-#     import pickle
-#     import numpy as np    
-#     from keras.preprocessing import sequence
-#     from scipy import sparse, io
-#     from numpy.random import permutation
-#     import re
+def get_data():
+    import numpy as np
+    np.random.seed(1234)  # for reproducibility
+    import pandas as pd
+    import os
+    import csv
+    import nltk
+    import itertools
+    import operator
+    import pickle
+    import numpy as np    
+    from keras.preprocessing import sequence
+    from scipy import sparse, io
+    from numpy.random import permutation
+    import re
         
-#     questions_file = 'saved_context'
-#     answers_file = 'saved_answer'
-#     vocabulary_file = 'vocabulary_movie'
-#     # padded_questions_file = 'Padded_context'
-#     # padded_answers_file = 'Padded_answers'
-#     unknown_token = 'something'
+    questions_file = 'data/saved_context'
+    answers_file = 'data/saved_answer'
+    vocabulary_file = 'models/pretrained/vocabulary_movie'
+    # padded_questions_file = 'Padded_context'
+    # padded_answers_file = 'Padded_answers'
+    unknown_token = 'something'
 
-#     vocabulary_size = 7000
-#     max_features = vocabulary_size
-#     maxlen_input = 50
-#     maxlen_output = 50  # cut texts after this number of words
+    vocabulary_size = 7000
+    max_features = vocabulary_size
+    maxlen_input = 50
+    maxlen_output = 50  # cut texts after this number of words
 
-#     print ("Reading the context data...")
-#     q = open(questions_file, 'r')
-#     questions = q.read()
-#     print ("Reading the answer data...")
-#     a = open(answers_file, 'r')
-#     answers = a.read()
-#     all = answers + questions
-#     print ("Tokenazing the answers...")
-#     paragraphs_a = [p for p in answers.split('\n')]
-#     paragraphs_b = [p for p in all.split('\n')]
-#     paragraphs_a = ['BOS '+p+' EOS' for p in paragraphs_a]
-#     paragraphs_b = ['BOS '+p+' EOS' for p in paragraphs_b]
-#     paragraphs_b = ' '.join(paragraphs_b)
-#     tokenized_text = paragraphs_b.split()
-#     paragraphs_q = [p for p in questions.split('\n') ]
-#     tokenized_answers = [p.split() for p in paragraphs_a]
-#     tokenized_questions = [p.split() for p in paragraphs_q]
+    print ("Reading the context data...")
+    q = open(questions_file, 'r')
+    questions = q.read()
+    print ("Reading the answer data...")
+    a = open(answers_file, 'r')
+    answers = a.read()
+    all = answers + questions
+    print ("Tokenazing the answers...")
+    paragraphs_a = [p for p in answers.split('\n')]
+    paragraphs_b = [p for p in all.split('\n')]
+    paragraphs_a = ['BOS '+p+' EOS' for p in paragraphs_a]
+    paragraphs_b = ['BOS '+p+' EOS' for p in paragraphs_b]
+    paragraphs_b = ' '.join(paragraphs_b)
+    tokenized_text = paragraphs_b.split()
+    paragraphs_q = [p for p in questions.split('\n') ]
+    tokenized_answers = [p.split() for p in paragraphs_a]
+    tokenized_questions = [p.split() for p in paragraphs_q]
 
     ### Counting the word frequencies:
     ##word_freq = nltk.FreqDist(itertools.chain(tokenized_text))
