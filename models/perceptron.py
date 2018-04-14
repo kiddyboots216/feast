@@ -134,6 +134,16 @@ class Perceptron(GenericModel):
             save_path = new_saver.save(sess, checkpoint_dir + "model.ckpt")
         tf.reset_default_graph()
 
+    def get_weights(self, latest_checkpoint):
+        tf.reset_default_graph()
+        graph = tf.Graph()
+        with tf.Session(graph=graph) as sess:
+            new_saver = tf.train.import_meta_graph(latest_checkpoint + '.meta')
+            new_saver.restore(sess, latest_checkpoint)
+            collection = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+            weights = {tensor.name:sess.run(tensor) for tensor in collection}
+        return weights
+
     def get_weights_shape(self):
         tf.reset_default_graph()
         m = Perceptron()
@@ -147,16 +157,6 @@ class Perceptron(GenericModel):
                 output = sess.run(tensor)
                 weights[tensor.name] = (output.shape, output.size)
         tf.reset_default_graph()
-        return weights
-
-    def get_weights(self, latest_checkpoint):
-        tf.reset_default_graph()
-        graph = tf.Graph()
-        with tf.Session(graph=graph) as sess:
-            new_saver = tf.train.import_meta_graph(latest_checkpoint + '.meta')
-            new_saver.restore(sess, latest_checkpoint)
-            collection = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-            weights = {tensor.name:sess.run(tensor) for tensor in collection}
         return weights
 
     def sum_weights(self, weights1, weights2):
