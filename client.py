@@ -103,7 +103,6 @@ class Client(object):
     def train(self, IPFSaddress, config):
         #TODO: Make train() only need to take in the config argument ONCE
         logging.info('Training just started.')
-        assert weights != None, 'weights must not be None.'
 
         # Get weights from IPFS and load into model
         ipfs2keras(self.model, IPFSaddress) # fix me
@@ -158,11 +157,12 @@ class Client(object):
 
     def handle_ClientSelected_event(self, event_data):
 
-        e_data = [x for x in event_data.split('000000000') if x]
-        IPFSaddress_receiving = e_data[3]
-        address = self.web3.toChecksumAddress('0x' + e_data[1])
-        assert(self.clientAddress == address)
-        print(IPFSaddress, address)
+        e_data = [x for x in event_data.split('00') if x]
+
+        IPFSaddress_receiving = bytearray.fromhex(e_data[3][1:]).decode()
+        # address = self.web3.toChecksumAddress('0x' + e_data[1])
+        # assert(self.clientAddress == address)
+        print(IPFSaddress_receiving)
 
         # IPFS cat from IPFS_receiving
 
