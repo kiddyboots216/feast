@@ -160,7 +160,16 @@ class Client(object):
         update = self.model.scale_weights(update, num_data)
         return update, num_data
 
-    def handle_ClientSelected_event(self, event):
+    def handle_ClientSelected_event(self, event_data):
+        
+        e_data = [x for x in event_data.split('000000000') if x]
+        IPFSaddress_receiving = e_data[3]
+        address = self.web3.toChecksumAddress('0x' + e_data[1])
+        assert(self.clientAddress == address)
+        print(IPFSaddress, address)
+
+        # IPFS cat from IPFS_receiving
+
         contract_obj = self.web3.eth.contract(
            address=self.Query_address,
            abi=self.Query_interface['abi'])
@@ -197,7 +206,7 @@ class Client(object):
         self.Query_address = self.web3.toChecksumAddress(address)
         return event_data.split("000000000000000000000000")
 
-    def handle_BeginAveraging_event(IPFSaddress):
+    def handle_BeginAveraging_event(self, IPFSaddress):
         # get info at address
         stuff = self.api.cat(IPFSaddress)
         tx_hash = contract_obj.functions.allDone().transact(
@@ -232,7 +241,7 @@ class Client(object):
         if check[0] + check[1] == self.clientAddress.lower():
             target_contract = check[0] + check[2]
             print(target_contract)
-            retval = self.filter_set("ClientSelected(address)", target_contract, self.handle_ClientSelected_event)
+            retval = self.filter_set("ClientSelected(address,string)", target_contract, self.handle_ClientSelected_event)
             # return "I got chosen:", retval[0] + retval[1]
             alldone = self.filter_set("BeginAveraging(string)", target_contract, self.handle_BeginAveraging_event)
         else:

@@ -10,6 +10,8 @@ contract Query {
     uint public maxRounds;
     uint public numClients;
     uint public currentRound;
+
+    string public ipfsaddr = 'QmVm4yB2jxPwXXVXM6n86TuwA4jCQ7EfNPjguFrhoCbPiJ';
     
     int[] currentWeights;
     address[] addrList;
@@ -28,7 +30,7 @@ contract Query {
     //  Events  //
     //////////////
 
-    event ClientSelected(address);
+    event ClientSelected(address,string);
     event ResponseReceived(uint256);
     event BeginAveraging(string);
     // event FederatedAveragingComplete();
@@ -50,18 +52,18 @@ contract Query {
     function pingClients() {
         uint addrLen = addrList.length;
         for (uint i = 0; i < addrLen; i++) {
-            emit ClientSelected(addrList[i]);
+            emit ClientSelected(addrList[i], ipfsaddr);
         }
         // currentWeights = new int[](vectorLength);
     }
 
     function receiveResponse(
         string IPFSaddress) 
-        public 
+        public
         {
             numberOfResponses++;
             if (numberOfResponses > 1) {
-                BeginAveraging(IPFSaddress);
+                emit BeginAveraging(IPFSaddress);
             } else {
                 numberDone++;
             }
@@ -100,8 +102,9 @@ contract Query {
             //TODO: get the address from the client that sent in their response
             // _clientAddress.transfer(numData);
         }
-    function allDone() public {
-
+    function allDone(string IPFSaddress) public {
+        ipfsaddr = IPFSaddress;
+        numberDone++;
     }
     function divide(int i, uint j) internal pure returns (int) {
         //TODO: Implement real division lmao
