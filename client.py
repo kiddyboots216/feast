@@ -13,10 +13,11 @@ from models.lstm import LSTM
 from eth_utils import is_address
 from solc import compile_source, compile_files
 from blockchain.blockchain_utils import *
+from blockchain.ipfs_utils import *
 
 
 class Client(object):
-    def __init__(self, iden, X_train, y_train, provider, masterAddress=None, clientAddress=None):
+    def __init__(self, iden, X_train, y_train, provider, delegatorAddress=None, clientAddress=None):
         
         self.web3 = provider
 
@@ -28,7 +29,7 @@ class Client(object):
 
         # assert(import_acct == self.TEST_ACCOUNT)
 
-        contract_source_path_A = "blockchain/Master.sol"
+        contract_source_path_A = "blockchain/Delegator.sol"
         contract_source_path_B = "blockchain/Query.sol"
         self.compiled_sol = compile_files([contract_source_path_A, contract_source_path_B])
 
@@ -49,25 +50,25 @@ class Client(object):
                                            # "value": 9999999999})
         print("Client Address:", self.clientAddress)
 
-        self.Master_address = masterAddress
-    
+        self.Delegator_address = delegatorAddress
+
     def get_money(self):
         get_testnet_eth(self.clientAddress, self.web3)
         print(self.web3.eth.getBalance(self.clientAddress))
 
-        if self.Master_address:
-            assert(is_address(self.Master_address))
+        if self.Delegator_address:
+            assert(is_address(self.Delegator_address))
         else:
             #TODO: Figure out what to do in event that a master address is not supplied
             Query_id, self.Query_interface = self.compiled_sol.popitem()
-            Master_id, self.Master_interface = self.compiled_sol.popitem()
+            Delegator_id, self.Delegator_interface = self.compiled_sol.popitem()
 
             # self.Query_address = deploy_Query(self.web3, self.Query_interface, self.TEST_ACCOUNT, addr_lst)
-            self.Master_address = deploy_Master(self.web3, self.Master_interface, self.clientAddress)
+            self.Delegator_address = deploy_Master(self.web3, self.Delegator_interface, self.clientAddress)
 
-    def ping_client(self, query_address):
-        contract_obj = web3.eth.contract(
-           address=query_address,
+    def ping_client(self):
+        contract_obj = self.web3.eth.contract(
+           address=self.Query_address,
            abi=self.Query_interface)
         tx_hash = contract_obj.functions.pingClients(addr_lst).transact({'from': self.clientAddress})
         tx_receipt = web3.eth.getTransactionReceipt(tx_hash)
@@ -162,8 +163,7 @@ class Client(object):
         print(event_data)
         address = event_data.split("000000000000000000000000")[2]
         assert(is_address(address))
-<<<<<<< HEAD
-        self.buyerAddress = address
+        self.Query_address = address
         return event_data.split("000000000000000000000000")
         # start_listening(buyerAddress = self.buyerAddress)
 
@@ -217,8 +217,8 @@ class Client(object):
             loop.close()
         return check
 
-    def main(self, master_address):
-        check = self.filter_set("QueryCreated(address,address)", master_address, self.handle_QueryCreated_event)
+    def main(self):
+        check = self.filter_set("QueryCreated(address,address)", self.Delegator_address, self.handle_QueryCreated_event)
         if check[0] + check[1] == self.clientAddress.lower():
             # retrieve new address and rerun loop
             target_contract = check[0] + check[2]
