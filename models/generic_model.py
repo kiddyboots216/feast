@@ -16,7 +16,7 @@ class GenericModel:
     def get_model(self):
         raise NotImplementedError("Subclasses should implement this!")
 
-    def load_weights(self):
+    def load_weights(self, new_weights):
         raise NotImplementedError("Subclasses should implement this!")
 
     def get_weights(self):
