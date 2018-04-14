@@ -1,7 +1,7 @@
 import ipfsapi
 import json
 
-from keras.models import load_model, load_weights, model_from_json
+from keras.models import load_model, model_from_json
 
 
 api = ipfsapi.connect('127.0.0.1', 5001)
@@ -26,7 +26,8 @@ def keras_to_ipfs(api, model='model_weights.h5'):
     return api.add(model)
 
 def ipfs_to_keras(api, model_addr):
-    return deserialize_keras_model(CONFIG.load_weights(api.cat(model_addr)))
+    pass
+    # return deserialize_keras_model(CONFIG.load_weights(api.cat(model_addr)))
 
 def get_config(api, destination='model.json'):
     with open(destination) as json_data:
