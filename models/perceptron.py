@@ -134,6 +134,21 @@ class Perceptron(GenericModel):
             save_path = new_saver.save(sess, checkpoint_dir + "model.ckpt")
         tf.reset_default_graph()
 
+    def get_weights_shape(self):
+        tf.reset_default_graph()
+        m = Perceptron()
+        inputs = tf.placeholder(tf.float32, shape=(None, 28*28))
+        _ = m.get_model(features={"x": inputs}, labels=None, mode='predict', params=None)
+        with tf.Session().as_default() as sess:
+            sess.run(tf.global_variables_initializer())
+            collection = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+            weights = {}
+            for tensor in collection:
+                output = sess.run(tensor)
+                weights[tensor.name] = (output.shape, output.size)
+        tf.reset_default_graph()
+        return weights
+
     def get_weights(self, latest_checkpoint):
         tf.reset_default_graph()
         graph = tf.Graph()
