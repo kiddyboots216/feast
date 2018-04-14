@@ -57,12 +57,12 @@ class Client(object):
         get_testnet_eth(self.clientAddress, self.web3)
         print(self.web3.eth.getBalance(self.clientAddress))
 
+        Query_id, self.Query_interface = self.compiled_sol.popitem()
+        Delegator_id, self.Delegator_interface = self.compiled_sol.popitem()
+
         if self.Delegator_address:
             assert(is_address(self.Delegator_address))
         else:
-            #TODO: Figure out what to do in event that a master address is not supplied
-            Query_id, self.Query_interface = self.compiled_sol.popitem()
-            Delegator_id, self.Delegator_interface = self.compiled_sol.popitem()
 
             # self.Query_address = deploy_Query(self.web3, self.Query_interface, self.TEST_ACCOUNT, addr_lst)
             self.Delegator_address = deploy_Master(self.web3, self.Delegator_interface, self.clientAddress)
@@ -158,13 +158,13 @@ class Client(object):
             "goal_accuracy": 1.0,
             "lr_decay": 0.99
         }
-        update = train(config)
+        update = self.train(config)
 
         # IPFS add
         IPFSaddress = 'QmVm4yB2jxPwXXVXM6n86TuwA4jCQ7EfNPjguFrhoCbPiJ'
 
         tx_hash = contract_obj.functions.receiveResponse(IPFSaddress).transact(
-            {'from': clientAddress})
+            {'from': self.clientAddress})
         tx_receipt = self.web3.eth.getTransactionReceipt(tx_hash)
         log = contract_obj.events.ResponseReceived().processReceipt(tx_receipt)
         return log[0]
@@ -173,14 +173,14 @@ class Client(object):
         print(event_data)
         address = event_data.split("000000000000000000000000")[2]
         assert(is_address(address))
-        self.Query_address = address
+        self.Query_address = self.web3.toChecksumAddress(address)
         return event_data.split("000000000000000000000000")
 
     def handle_BeginAveraging_event(IPFSaddress):
         # get info at address
         stuff = self.api.cat(IPFSaddress)
         tx_hash = contract_obj.functions.allDone().transact(
-            {'from': clientAddress})
+            {'from': self.clientAddress})
 
     async def start_listening(self, event_to_listen, poll_interval=5):
         while True:
@@ -214,7 +214,6 @@ class Client(object):
             retval = self.filter_set("ClientSelected(address)", target_contract, self.handle_ClientSelected_event)
             # return "I got chosen:", retval[0] + retval[1]
             alldone = self.filter_set("BeginAveraging(string)", target_contract, self.handle_BeginAveraging_event)
-
         else:
             return "not me"
 
