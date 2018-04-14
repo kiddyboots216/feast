@@ -14,12 +14,13 @@ from eth_utils import is_address
 from solc import compile_source, compile_files
 from blockchain.blockchain_utils import *
 from blockchain.ipfs_utils import *
-
+from models.gan import ConversationalNetwork
 
 class Client(object):
     def __init__(self, iden, X_train, y_train, provider, delegatorAddress=None, clientAddress=None):
-        
+
         self.web3 = provider
+        self.api = ipfsapi.connect('127.0.0.1', 5001)
 
         self.PASSPHRASE = 'panda'
         self.TEST_ACCOUNT = '0xb4734dCc08241B46C0D7d22D163d065e8581503e'
@@ -56,12 +57,12 @@ class Client(object):
         get_testnet_eth(self.clientAddress, self.web3)
         print(self.web3.eth.getBalance(self.clientAddress))
 
+        Query_id, self.Query_interface = self.compiled_sol.popitem()
+        Delegator_id, self.Delegator_interface = self.compiled_sol.popitem()
+
         if self.Delegator_address:
             assert(is_address(self.Delegator_address))
         else:
-            #TODO: Figure out what to do in event that a master address is not supplied
-            Query_id, self.Query_interface = self.compiled_sol.popitem()
-            Delegator_id, self.Delegator_interface = self.compiled_sol.popitem()
 
             # self.Query_address = deploy_Query(self.web3, self.Query_interface, self.TEST_ACCOUNT, addr_lst)
             self.Delegator_address = deploy_Master(self.web3, self.Delegator_interface, self.clientAddress)
@@ -99,36 +100,54 @@ class Client(object):
             raise ValueError("Model {0} not supported.".format(model_type))
         self.weights_metadata = self.model.get_weights_shape()
 
-    def train(self, weights, config):
+    def train(self, IPFSaddress, config):
         #TODO: Make train() only need to take in the config argument ONCE
         logging.info('Training just started.')
-        assert weights != None, 'weights must not be None.'
-        batch_size = self.X_train.shape[0] if config["batch_size"] == -1 \
-            else config["batch_size"]
-        epochs = config["epochs"]
-        learning_rate = config["learning_rate"]
-        params = {'new_weights': weights, 'learning_rate': learning_rate}
 
-        classifier = tf.estimator.Estimator(
-            model_fn=self.model.get_model,
-            model_dir=self.get_checkpoints_folder(),
-            params = params
-        )
+        # Get weights from IPFS and load into model
+        ipfs2keras(self.model, IPFSaddress) # fix me
+
+        # Train model
+        self.model.train_model(config)
+
+        # Prepare federated learning return
+        n_k = a_train.shape[0]
+        # new_weights = self.model.get_weights()
+
+        # Save new weights to IPFS and return address
+        new_model_address = keras2ipfs(self.model)
+
+        return new_model_address, n_k
+
+
+
+
+        # batch_size = self.X_train.shape[0] if config["batch_size"] == -1 \
+        #     else config["batch_size"]
+        # epochs = config["epochs"]
+        # learning_rate = config["learning_rate"]
+        # params = {'new_weights': weights, 'learning_rate': learning_rate}
+
+        # classifier = tf.estimator.Estimator(
+        #     model_fn=self.model.get_model,
+        #     model_dir=self.get_checkpoints_folder(),
+        #     params = params
+        # )
         # tensors_to_log = {"probabilities": "softmax_tensor"}
         # logging_hook = tf.train.LoggingTensorHook(
         #     tensors=tensors_to_log, every_n_iter=50)
-        train_input_fn = tf.estimator.inputs.numpy_input_fn(
-            x={"x": self.X_train},
-            y=self.y_train,
-            batch_size=batch_size,
-            num_epochs=epochs,
-            shuffle=True
-        )
-        classifier.train(
-            input_fn=train_input_fn,
-            # steps=1
-            # hooks=[logging_hook]
-        )
+        # train_input_fn = tf.estimator.inputs.numpy_input_fn(
+        #     x={"x": self.X_train},
+        #     y=self.y_train,
+        #     batch_size=batch_size,
+        #     num_epochs=epochs,
+        #     shuffle=True
+        # )
+        # classifier.train(
+        #     input_fn=train_input_fn,
+        #     # steps=1
+        #     # hooks=[logging_hook]
+        # )
         logging.info('Training complete.')
         new_weights = self.model.get_weights(self.get_latest_checkpoint())
         shutil.rmtree("./checkpoints-{0}/".format(self.iden))
@@ -136,11 +155,21 @@ class Client(object):
         update = self.model.scale_weights(update, num_data)
         return update, num_data
 
-    def handle_ClientSelected_event(self, event):
-        #TODO: get weights and config from event
-        #weights will come from the smart contract's variable currentWeights[]        
+    def handle_ClientSelected_event(self, event_data):
 
-        weights = event.get_weights()
+        e_data = [x for x in event_data.split('00') if x]
+
+        IPFSaddress_receiving = bytearray.fromhex(e_data[3][1:]).decode()
+        # address = self.web3.toChecksumAddress('0x' + e_data[1])
+        # assert(self.clientAddress == address)
+        print(IPFSaddress_receiving)
+
+        # IPFS cat from IPFS_receiving
+
+        contract_obj = self.web3.eth.contract(
+           address=self.Query_address,
+           abi=self.Query_interface['abi'])
+
         #will be hardcoded
         config = {
             "num_clients": 1,
@@ -155,9 +184,13 @@ class Client(object):
             "goal_accuracy": 1.0,
             "lr_decay": 0.99
         }
-        update, num_data = train(weights, config)
-        tx_hash = contract_obj.functions.receiveResponse(update, num_data).transact(
-            {'from': clientAddress})
+
+        # IPFS add
+        IPFSaddress = 'QmVm4yB2jxPwXXVXM6n86TuwA4jCQ7EfNPjguFrhoCbPiJ'
+        update = self.train(IPFSaddress, config)
+
+        tx_hash = contract_obj.functions.receiveResponse(IPFSaddress).transact(
+            {'from': self.clientAddress})
         tx_receipt = self.web3.eth.getTransactionReceipt(tx_hash)
         log = contract_obj.events.ResponseReceived().processReceipt(tx_receipt)
         return log[0]
@@ -166,8 +199,31 @@ class Client(object):
         print(event_data)
         address = event_data.split("000000000000000000000000")[2]
         assert(is_address(address))
-        self.Query_address = address
+        self.Query_address = self.web3.toChecksumAddress(address)
         return event_data.split("000000000000000000000000")
+
+    def handle_BeginAveraging_event(self, IPFSaddress):
+        # get info at address
+        contract_obj = self.web3.eth.contract(
+           address=self.Query_address,
+           abi=self.Query_interface['abi'])
+        averagedAddress, num_data = self.runningWeightedAverage(IPFSaddress)
+        tx_hash = contract_obj.functions.allDone().transact(
+            {'from': self.clientAddress})
+        return tx_hash
+
+    def runningWeightedAverage(self, new_model_address, n_k_1, n_k_2):
+        model1, model2 = self.model, self.preprocess(new_model_address)
+        weights1, weights2 = model1.get_weights(), model2.get_weights()
+        scaled_weights1, scaled_weights2 = model1.scale_weights(weights1, n_k_1), model2.scale_weights(weights2, n_k_2)
+        summed_weights = model2.sum_weights(weights1, weights2)
+        newModel = model2.set_weights(summed_weights)
+        return keras2ipfs(newModel), n_k_1 + n_k_2
+
+    def preprocess(self, new_model_address):
+        newModel = ConversationalNetwork()
+        ipfs2keras(newModel, new_model_address)
+        return newModel
 
     async def start_listening(self, event_to_listen, poll_interval=5):
         while True:
@@ -198,10 +254,11 @@ class Client(object):
         if check[0] + check[1] == self.clientAddress.lower():
             target_contract = check[0] + check[2]
             print(target_contract)
-            retval = self.filter_set("ClientSelected(address)", target_contract, self.handle_ClientSelected_event)
-            return "I got chosen:", retval[0] + retval[1]
+            retval = self.filter_set("ClientSelected(address,string)", target_contract, self.handle_ClientSelected_event)
+            # return "I got chosen:", retval[0] + retval[1]
+            alldone = self.filter_set("BeginAveraging(string)", target_contract, self.handle_BeginAveraging_event)
         else:
-            return "failure"
+            return "not me"
 
 
 

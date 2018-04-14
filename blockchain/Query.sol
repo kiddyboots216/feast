@@ -6,10 +6,12 @@ contract Query {
     uint public vectorLength;
     uint public totalNumData = 0;
     uint public numberOfResponses = 0;
-    bool public moreThanOne = false;
+    uint public numberDone = 0;
     uint public maxRounds;
     uint public numClients;
     uint public currentRound;
+
+    string public ipfsaddr = 'QmVm4yB2jxPwXXVXM6n86TuwA4jCQ7EfNPjguFrhoCbPiJ';
     
     int[] currentWeights;
     address[] addrList;
@@ -28,9 +30,9 @@ contract Query {
     //  Events  //
     //////////////
 
-    event ClientSelected(address);
+    event ClientSelected(address,string);
     event ResponseReceived(uint256);
-    event EventEmit();
+    event BeginAveraging(string);
     // event FederatedAveragingComplete();
 
     ///////////////
@@ -42,59 +44,68 @@ contract Query {
         maxRounds = uint(_maxRounds);
         numClients = uint(_numClients);
 
+        currentRound = 1;
+
         addrList = _addrList;
     }
 
     function pingClients() {
         uint addrLen = addrList.length;
         for (uint i = 0; i < addrLen; i++) {
-            emit ClientSelected(addrList[i]);
+            emit ClientSelected(addrList[i], ipfsaddr);
         }
         // currentWeights = new int[](vectorLength);
     }
 
     function receiveResponse(
-        int[] _clientUpdate,
-        // address _clientAddress,
-        uint _numData) 
-        public 
+        string IPFSaddress) 
+        public
         {
+            numberOfResponses++;
+            if (numberOfResponses > 1) {
+                emit BeginAveraging(IPFSaddress);
+            } else {
+                numberDone++;
+            }
             //TODO: make sure that only a client who is SUPPOSED to be training can call this!
             //received client update has already been multiplied by _numData=n_k
             //when we send it back we expect the client to divide it by /Sigma(_numData)=n
             // uint numData = uint(_numData);
-            totalNumData = totalNumData + _numData;
-            uint i;
-            // int[] memory newUpdate = new int[](vectorLength);
-            //below is commented out because we don't need to divide yet
-            // for (i = 0; i < vectorLength; i ++) {
-            //     newUpdate[i] =  divide(_clientUpdate[i], totalNumData);
+            // totalNumData = totalNumData + _numData;
+            // uint i;
+            // // int[] memory newUpdate = new int[](vectorLength);
+            // //below is commented out because we don't need to divide yet
+            // // for (i = 0; i < vectorLength; i ++) {
+            // //     newUpdate[i] =  divide(_clientUpdate[i], totalNumData);
+            // // }
+            // //adding the new client update to the current ones 
+            // for (i = 0; i < vectorLength; i++) {
+            //     currentWeights[i] = currentWeights[i] + _clientUpdate[i];
             // }
-            //adding the new client update to the current ones 
-            for (i = 0; i < vectorLength; i++) {
-                currentWeights[i] = currentWeights[i] + _clientUpdate[i];
-            }
-            numberOfResponses++;
-            //if this was the last client we needed to hear from, go ahead and 
-            //start another round of training if we haven't exceeded our max rounds
-            if (numberOfResponses > numClients) {
-                //scale our weights down
-                for (i = 0; i < vectorLength; i++) {
-                currentWeights[i] = divide(currentWeights[i], totalNumData);
-            }
-                if (currentRound < maxRounds) {
-                    // pingClients(keyList);
-                } else {
-                    //we're done!
-                }
-                currentRound++;
-            }
+            // numberOfResponses++;
+            // //if this was the last client we needed to hear from, go ahead and 
+            // //start another round of training if we haven't exceeded our max rounds
+            // if (numberOfResponses > numClients) {
+            //     //scale our weights down
+            //     for (i = 0; i < vectorLength; i++) {
+            //     currentWeights[i] = divide(currentWeights[i], totalNumData);
+            // }
+            //     if (currentRound < maxRounds) {
+            //         // pingClients(keyList);
+            //     } else {
+            //         //we're done!
+            //     }
+            //     currentRound++;
+            // }
             //now transfer some ETH to the client as thanks for training our model!
             //for now the heuristic is just how much data they had
             //TODO: get the address from the client that sent in their response
             // _clientAddress.transfer(numData);
         }
-    
+    function allDone(string IPFSaddress) public {
+        ipfsaddr = IPFSaddress;
+        numberDone++;
+    }
     function divide(int i, uint j) internal pure returns (int) {
         //TODO: Implement real division lmao
         return i / int (j);
