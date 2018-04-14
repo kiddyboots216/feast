@@ -17,7 +17,7 @@ from blockchain.ipfs_utils import *
 from models.gan import ConversationalNetwork
 
 class Client(object):
-    def __init__(self, iden, X_train, y_train, provider, delegatorAddress=None, clientAddress=None):
+    def __init__(self, iden, provider, delegatorAddress=None, clientAddress=None):
 
         self.web3 = provider
         self.api = ipfsapi.connect('127.0.0.1', 5001)
@@ -35,8 +35,6 @@ class Client(object):
         self.compiled_sol = compile_files([contract_source_path_A, contract_source_path_B])
 
         self.iden = iden
-        self.X_train = X_train
-        self.y_train = y_train
 
         if clientAddress:
             assert(is_address(clientAddress))
@@ -90,29 +88,29 @@ class Client(object):
         self.model_type = model_type
         if model_type == "perceptron":
             self.model = Perceptron()
+            self.weights_metadata = self.model.get_weights_shape()
         elif model_type == "cnn":
             #TODO: Support CNN
             self.model = CNN()
         elif model_type == "lstm":
             #TODO: Support LSTM
             self.model = LSTM()
+        elif model_type == "gan":
+            self.model = ConversationalNetwork()
+            self.model.build_model(is_retraining=True)
         else:
             raise ValueError("Model {0} not supported.".format(model_type))
-        self.weights_metadata = self.model.get_weights_shape()
 
     def train(self, IPFSaddress, config):
         #TODO: Make train() only need to take in the config argument ONCE
         logging.info('Training just started.')
 
         # Get weights from IPFS and load into model
+        self.setup_model(config['model_type'])
         ipfs2keras(self.model, IPFSaddress) # fix me
 
         # Train model
-        self.model.train_model(config)
-
-        # Prepare federated learning return
-        n_k = a_train.shape[0]
-        # new_weights = self.model.get_weights()
+        n_k = self.model.train_model(config)
 
         # Save new weights to IPFS and return address
         new_model_address = keras2ipfs(self.model)
@@ -137,7 +135,7 @@ class Client(object):
         #will be hardcoded
         config = {
             "num_clients": 1,
-            "model_type": 'perceptron',
+            "model_type": 'gan',
             "dataset_type": 'iid',
             "fraction": 1.0,
             "max_rounds": 100000,
@@ -177,17 +175,17 @@ class Client(object):
         return tx_hash
 
     def runningWeightedAverage(self, new_model_address, n_k_1, n_k_2):
-        model1, model2 = self.model, self.preprocess(new_model_address)
-        weights1, weights2 = model1.get_weights(), model2.get_weights()
+        weights1, weights2 = self.model.get_weights(), self.preprocess(new_model_address)
         scaled_weights1, scaled_weights2 = model1.scale_weights(weights1, n_k_1), model2.scale_weights(weights2, n_k_2)
         summed_weights = model2.sum_weights(weights1, weights2)
-        newModel = model2.set_weights(summed_weights)
-        return keras2ipfs(newModel), n_k_1 + n_k_2
+        new_weights = model2.set_weights(summed_weights)
+        return keras2ipfs(new_weights), n_k_1 + n_k_2
 
     def preprocess(self, new_model_address):
         newModel = ConversationalNetwork()
+        newModel.build_model(is_retraining=False)
         ipfs2keras(newModel, new_model_address)
-        return newModel
+        return newModel.get_weights()
 
     async def start_listening(self, event_to_listen, poll_interval=5):
         while True:

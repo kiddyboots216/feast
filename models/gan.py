@@ -171,6 +171,7 @@ class ConversationalNetwork:
                         count += 1           
                 print('Training epoch: %d, training examples: %d - %d'%(m,n, n + step))
                 self.generator.fit([Q, A], Y, batch_size=batch_size, epochs=epochs)
+        return n_exem
 
     def load_initial_weights(self):
         self.load_weights(self.gen_initial_weights_path)
