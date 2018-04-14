@@ -8,14 +8,12 @@ contract Query {
     uint public numberOfResponses = 0;
     bool public moreThanOne = false;
     uint public maxRounds;
-    uint public modelType;
-    uint public goalAccuracy;
     uint public numClients;
     uint public currentRound;
     
     int[] currentWeights;
+    address[] addrList;
     
-    int[] public keyList;
     mapping(int => int[]) public weights;
 
     /////////////
@@ -39,36 +37,30 @@ contract Query {
     // Functions //
     ///////////////
 
-    function Query(int _vectorLength, int[] _keyList,
-        int _goalAccuracy, int _modelType, int _maxRounds,
-        int[] _initialWeights, int _numClients
-        ) public {
-        // goalAccuracy = _goalAccuracy;
-        // modelType = _modelType;
-        // maxRounds = _maxRounds;
-        // vectorLength = _vectorLength;
-        // numClients = _numClients;
-        goalAccuracy = uint(_goalAccuracy);
-        modelType = uint(_modelType);
+    function Query(int _vectorLength, int _maxRounds,
+        int _numClients, address[] _addrList) public {
+
         maxRounds = uint(_maxRounds);
         vectorLength = uint(_vectorLength);
         numClients = uint(_numClients);
-        keyList = _keyList;
-        uint keyLength = keyList.length;
-        currentWeights = _initialWeights;
+
+        addrList = _addrList;
+
+        // pingClients(addrList);
+
         // for (uint i = 0; i < keyLength; i++) {
         //     weights[keyList[i]] = new int[](keyLength);
         // }
     }
 
-    function pingClients(address[] clientList) {
-        uint clientLen = clientList.length;
-        for (uint i = 0; i < clientLen; i++) {
-            emit ClientSelected(clientList[i]);
+    function pingClients() {
+        uint addrLen = addrList.length;
+        for (uint i = 0; i < addrLen; i++) {
+            emit ClientSelected(addrList[i]);
         }
-        currentWeights = new int[](vectorLength);
+        // currentWeights = new int[](vectorLength);
     }
-    
+
     function receiveResponse(
         int[] _clientUpdate,
         // address _clientAddress,
@@ -98,12 +90,6 @@ contract Query {
                 for (i = 0; i < vectorLength; i++) {
                 currentWeights[i] = divide(currentWeights[i], totalNumData);
             }
-                //calculate the accuracy
-                uint accuracy = calculateAccuracy();
-                if (accuracy > goalAccuracy) {
-                    //we're done!
-                    terminate();
-                }
                 if (currentRound < maxRounds) {
                     // pingClients(keyList);
                 } else {
@@ -127,55 +113,4 @@ contract Query {
     function terminate() internal {
         
     }
-    
-    function sendResponse(
-        int[] update,
-        int key,
-        int numData)
-        external
-        returns (int[])
-        // needs permissioning
-    {
-        uint i;
-        uint keyLen = keyList.length;
-        if (moreThanOne) {
-            int[] memory newUpdate = new int[](vectorLength);
-            
-            // scaling
-            for (i = 0; i < keyLen; i++) {
-                newUpdate[i] = update[i] * numData;
-            }
-
-            // summation
-            for (i = 0; i < keyLen; i++) {
-                currentWeights[i] = currentWeights[i] + newUpdate[i];
-            }
-        } else {
-            for (i = 0; i < keyLen; i++) {
-                currentWeights[i] = update[i];
-            }
-            if (currentWeights.length == vectorLength) {
-                moreThanOne = true;
-            }
-        }
-        numberOfResponses++;
-        emit ResponseReceived(numberOfResponses);
-        emit EventEmit();
-        return currentWeights;
-    }
-
-    // function inverseScale()
-    //     external returns (bool)
-    //     // check against threshold
-    // {
-    //     uint i;
-    //     uint j;
-    //     uint keyLen = keyList.length;
-    //     for (i = 0; i < keyLen; i++) {
-    //         for (j = 0; j < vectorLength; j++) {
-    //             weights[keyList[i]][j] = weights[keyList[i]][j] / int(totalNumData);
-    //         }
-    //     }
-    //     return true;
-    // }
 }
