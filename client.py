@@ -66,12 +66,23 @@ class Client(object):
             # self.Query_address = deploy_Query(self.web3, self.Query_interface, self.TEST_ACCOUNT, addr_lst)
             self.Delegator_address = deploy_Master(self.web3, self.Delegator_interface, self.clientAddress)
 
+    def launch_query(self, target_address):
+        contract_obj = self.web3.eth.contract(
+           address=self.Delegator_address,
+           abi=self.Delegator_interface['abi'])
+        tx_hash = contract_obj.functions.query(target_address).transact(
+            {'from': self.clientAddress})
+        tx_receipt = self.web3.eth.getTransactionReceipt(tx_hash)
+        print(tx_receipt)
+        self.Query_address = self.web3.toChecksumAddress('0x' + tx_receipt['logs'][0]['data'].split('000000000000000000000000')[2])
+        # return tx_receipt
+
     def ping_client(self):
         contract_obj = self.web3.eth.contract(
            address=self.Query_address,
-           abi=self.Query_interface)
-        tx_hash = contract_obj.functions.pingClients(addr_lst).transact({'from': self.clientAddress})
-        tx_receipt = web3.eth.getTransactionReceipt(tx_hash)
+           abi=self.Query_interface['abi'])
+        tx_hash = contract_obj.functions.pingClients().transact({'from': self.clientAddress})
+        tx_receipt = self.web3.eth.getTransactionReceipt(tx_hash)
         return tx_receipt
 
     def setup_model(self, model_type):
@@ -125,14 +136,6 @@ class Client(object):
         update = self.model.scale_weights(update, num_data)
         return update, num_data
 
-    # def send_weights(self, train_arr, train_key):
-    #     #this should call the contract.sendResponse() with the first argument train() as the input
-    #     tx_hash = contract_obj.functions.sendResponse(train_arr, train_key, len(train_arr)).transact(
-    #         {'from': clientAddress})
-    #     tx_receipt = self.web3.eth.getTransactionReceipt(tx_hash)
-    #     log = contract_obj.events.ResponseReceived().processReceipt(tx_receipt)
-    #     return log[0]
-
     def handle_ClientSelected_event(self, event):
         #TODO: get weights and config from event
         #weights will come from the smart contract's variable currentWeights[]        
@@ -165,35 +168,8 @@ class Client(object):
         assert(is_address(address))
         self.Query_address = address
         return event_data.split("000000000000000000000000")
-        # start_listening(buyerAddress = self.buyerAddress)
-
-    # def start_listening(self, buyerAddress = None, 
-    #     # event_to_listen = None, 
-    #     poll_interval = 1000):
-    #     #this should set this client to start listening to a specific contract
-    #     #make this non-blocking
-    #     #TODO: Make event filtering work!
-    #     if buyerAddress:
-    #         assert(is_address(buyerAddress))
-    #         self.buyerContract = self.web3.eth.contract(
-    #                 address=buyerAddress,
-    #                 abi=contractAbi)
-    #         event_filter = self.buyerContract.eventFilter('ClientSelected', {'fromBlock': 'latest'})
-    #         while True:
-    #             for event in event_filter.get_new_entries():
-    #                 handle_clientSelected_event(event)
-    #             time.sleep(poll_interval)
-    #     else:
-    #         event_filter = self.masterContract.eventFilter('QueryCreated', {'fromBlock': 'latest'})
-    #         while True:
-    #             for event in event_filter.get_new_entries():
-    #                 handle_queryCreated_event(event)
-    #             time.sleep(poll_interval)
-
 
     async def start_listening(self, event_to_listen, poll_interval=5):
-        #this should set this client to start listening to a specific contract
-    #     assert(is_address(address))
         while True:
             lst = event_to_listen.get_new_entries()
             if lst:
@@ -220,7 +196,6 @@ class Client(object):
     def main(self):
         check = self.filter_set("QueryCreated(address,address)", self.Delegator_address, self.handle_QueryCreated_event)
         if check[0] + check[1] == self.clientAddress.lower():
-            # retrieve new address and rerun loop
             target_contract = check[0] + check[2]
             print(target_contract)
             retval = self.filter_set("ClientSelected(address)", target_contract, self.handle_ClientSelected_event)

@@ -26,8 +26,7 @@ def keras_to_ipfs(api, model='model_weights.h5'):
     return api.add(model)
 
 def ipfs_to_keras(api, model_addr):
-    pass
-    # return deserialize_keras_model(CONFIG.load_weights(api.cat(model_addr)))
+    return deserialize_keras_model(CONFIG.load_weights(api.cat(model_addr)))
 
 def get_config(api, destination='model.json'):
     with open(destination) as json_data:
