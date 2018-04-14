@@ -10,6 +10,7 @@ contract Query {
     uint public maxRounds;
     uint public numClients;
     uint public currentRound;
+    uint n_k;
 
     string public ipfsaddr = 'QmVm4yB2jxPwXXVXM6n86TuwA4jCQ7EfNPjguFrhoCbPiJ';
     
@@ -58,10 +59,12 @@ contract Query {
     }
 
     function receiveResponse(
-        string IPFSaddress) 
+        string IPFSaddress,
+        uint _n_k) 
         public
         {
             numberOfResponses++;
+            n_k = _n_k;
             if (numberOfResponses > 1) {
                 emit BeginAveraging(IPFSaddress);
             } else {
