@@ -13,9 +13,9 @@ from eth_utils import is_address
 from blockchain.blockchain_utils import *
 
 
-class Client(object):    
+class Client(object):
     def __init__(self, iden, X_train, y_train, provider, masterAddress=None, clientAddress=None):
-        
+
         self.PASSPHRASE = 'panda'
         self.TEST_ACCOUNT = '0xf6419f5c5295a70C702aC21aF0f64Be07B59F3c4'
         self.TEST_KEY = '146396092a127e4cf6ff3872be35d49228c7dc297cf34da5a0808f29cf307da1'
@@ -45,7 +45,7 @@ class Client(object):
             # self.web3.eth.sendTransaction({"from": self.TEST_ACCOUNT, "to": self.clientAddress,
                                            # "value": 9999999999})
         get_testnet_eth(self.clientAddress)
-        self.buyerContract = None          
+        self.buyerContract = None
 
     def setup_model(self, model_type):
         self.model_type = model_type
@@ -59,11 +59,7 @@ class Client(object):
             self.model = LSTM()
         else:
             raise ValueError("Model {0} not supported.".format(model_type))
-
-    # def setup_training(self, batch_size, epochs, learning_rate):
-    #     self.batch_size = self.X_train.shape[0] if batch_size == -1 else batch_size
-    #     self.epochs = epochs
-    #     self.params = {'learning_rate': learning_rate}
+        self.weights_metadata = self.model.get_weights_shape()
 
     def train(self, weights, config):
         #TODO: Make train() only need to take in the config argument ONCE
@@ -145,8 +141,8 @@ class Client(object):
         self.buyerAddress = adress
         start_listening(buyerAddress = self.buyerAddress)
 
-    def start_listening(self, buyerAddress = None, 
-        # event_to_listen = None, 
+    def start_listening(self, buyerAddress = None,
+        # event_to_listen = None,
         poll_interval = 1000):
         #this should set this client to start listening to a specific contract
         #make this non-blocking
@@ -167,6 +163,21 @@ class Client(object):
                 for event in event_filter.get_new_entries():
                     handle_queryCreated_event(event)
                 time.sleep(poll_interval)
+
+    def flatten_weights(self, weights, factor=1e10):
+        flattened = []
+        for _, tensor in sorted(weights.items()):
+            flattened.extend(tensor.flatten().tolist())
+        return [int(n*factor) for n in flattened]
+
+    def unflatten_weights(self, flattened, factor=1e10):
+        flattened = [n/factor for n in flattened]
+        weights = {}
+        index = 0
+        for name, (shape, size) in sorted(self.weights_metadata.items()):
+            weights[name] = np.array(flattened[index:index+size]).reshape(shape)
+            index += size
+        return weights
 
     def get_checkpoints_folder(self):
         return "./checkpoints-{0}/{1}/".format(self.iden, self.model_type)
