@@ -1,5 +1,6 @@
 import ipfsapi
 import json
+from filelock import FileLock
 
 from keras.models import load_model, model_from_json
 
@@ -11,28 +12,28 @@ CONFIG = None
 # catted = api.cat('QmVm4yB2jxPwXXVXM6n86TuwA4jCQ7EfNPjguFrhoCbPiJ')
 # print('loaded in model from IPFS as bytes')
 # model = model.load_weights(catted)
-def ipfs2keras(model_address):
-    deserialize_keras_model(api.cat(model_address))
+def ipfs2keras(model, model_address):
+    deserialize_keras_model(model, api.cat(model_address))
     return 'Hoorah'
-def deserialize_keras_model(model_bin):
-    lock = FileLock('temp_model2.h5.lock')
+def deserialize_keras_model(model, model_bin):
+    lock = FileLock('models/temp_model.h5.lock')
     with lock:
-        with open('temp_model2.h5', 'wb') as g:
+        with open('models/temp_model.h5', 'wb') as g:
             g.write(model_bin)
             g.close()
-        model.load_weights('temp_model2.h5')
+        model.load_weights('models/temp_model.h5')
 # ipfs2keras(catted)
 # print('I loaded a model from IPFS!')
 def keras2ipfs(model):
     return api.add_bytes(serialize_keras_model(model))
 def serialize_keras_model(model):
-    lock = FileLock('temp_model.h5.lock')
+    lock = FileLock('models/temp_model.h5.lock')
     with lock:
-        model.save('temp_model.h5')
-        with open('temp_model.h5', 'rb') as f:
+        model.load_weights('models/temp_model.h5')
+        with open('models/temp_model.h5', 'rb') as f:
             model_bin = f.read()
             f.close()
         return model_bin
-def send_model():
-    dict_of_stuff = keras2ipfs()
-    return dict_of_stuff
+# def send_model():
+#     dict_of_stuff = keras2ipfs()
+#     return dict_of_stuff

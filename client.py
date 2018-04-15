@@ -121,10 +121,10 @@ class Client(object):
 
         e_data = [x for x in event_data.split('00') if x]
 
-        IPFSaddress_receiving = bytearray.fromhex(e_data[3][1:]).decode()
+        IPFSaddress_receiving = bytearray.fromhex(e_data[3][1:]).decode()[1:]
         # address = self.web3.toChecksumAddress('0x' + e_data[1])
         # assert(self.clientAddress == address)
-        print(IPFSaddress_receiving)
+        print("IPFS address:", IPFSaddress_receiving)
 
         # IPFS cat from IPFS_receiving
 
@@ -138,9 +138,9 @@ class Client(object):
             "model_type": 'gan',
             "dataset_type": 'iid',
             "fraction": 1.0,
-            "max_rounds": 100000,
-            "batch_size": 50,
-            "epochs": 10,
+            "max_rounds": 1,
+            "batch_size": 10,
+            "epochs": 1,
             "learning_rate": 1e-4,
             "save_dir": './results/',
             "goal_accuracy": 1.0,
@@ -156,7 +156,7 @@ class Client(object):
             {'from': self.clientAddress})
         tx_receipt = self.web3.eth.getTransactionReceipt(tx_hash)
         log = contract_obj.events.ResponseReceived().processReceipt(tx_receipt)
-        return log[0]
+        # return log[0]
 
     def handle_QueryCreated_event(self, event_data):
         print(event_data)
@@ -217,8 +217,10 @@ class Client(object):
         if check[0] + check[1] == self.clientAddress.lower():
             target_contract = check[0] + check[2]
             print(target_contract)
-            retval = self.filter_set("ClientSelected(address,string)", target_contract, self.handle_ClientSelected_event)
+            # retval = self.filter_set("ClientSelected(address,string)", target_contract, self.handle_ClientSelected_event)
+            self.filter_set("ClientSelected(address,string)", target_contract, self.handle_ClientSelected_event)
             # return "I got chosen:", retval[0] + retval[1]
+            print("listening for next round to begin...")
             alldone = self.filter_set("BeginAveraging(string)", target_contract, self.handle_BeginAveraging_event)
         else:
             return "not me"
