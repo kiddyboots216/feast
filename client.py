@@ -26,10 +26,6 @@ class Client(object):
         self.TEST_ACCOUNT = '0xb4734dCc08241B46C0D7d22D163d065e8581503e'
         self.TEST_KEY = '146396092a127e4cf6ff3872be35d49228c7dc297cf34da5a0808f29cf307da1'
 
-        # import_acct = self.web3.personal.importRawKey(self.TEST_KEY, self.PASSPHRASE)
-
-        # assert(import_acct == self.TEST_ACCOUNT)
-
         contract_source_path_A = "blockchain/Delegator.sol"
         contract_source_path_B = "blockchain/Query.sol"
         self.compiled_sol = compile_files([contract_source_path_A, contract_source_path_B])
@@ -44,9 +40,7 @@ class Client(object):
             self.clientAddress = self.web3.personal.newAccount(self.PASSPHRASE)
             assert(is_address(self.clientAddress))
             self.web3.personal.unlockAccount(self.clientAddress, self.PASSPHRASE)
-            # send_raw_tx(self.web3, self.clientAddress, self.TEST_ACCOUNT, self.TEST_KEY)
-            # self.web3.eth.sendTransaction({"from": self.TEST_ACCOUNT, "to": self.clientAddress,
-                                           # "value": 9999999999})
+            
         print("Client Address:", self.clientAddress)
 
         self.Delegator_address = delegatorAddress
